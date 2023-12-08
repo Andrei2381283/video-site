@@ -1,0 +1,321 @@
+html {
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+  color: white;
+}
+
+#root {
+  width: 100%;
+}
+
+body {
+  background-color: #282c34;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 12px;
+  padding-bottom: 72px;
+  gap: 20px;
+}
+
+.filmForm {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 450px;
+  max-width: 100%;
+  position: relative;
+  margin-top: 72px;
+}
+
+.filmInputDiv {
+  position: relative;
+  width: 100%;
+  animation: 0.5s 1 alternate forwards width;
+}
+
+.filmInput {
+  padding: 8px 12px;
+  width: 100%;
+  max-width: 100%;
+  font-size: 16px;
+  outline: none;
+  background: #2a3544;
+  border: 1px solid #1a212b;
+}
+
+button {
+  padding: 8px 12px;
+  font-size: 16px;
+  background: #2a3544;
+  border: 1px solid #1a212b;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #252e3b;
+  border: 1px solid #1e2735;
+  color: darkgray;
+  cursor: default;
+}
+
+.filmSubmit {
+  margin-left: 12px;
+  opacity: 0;
+  animation: 0.5s 0.1s alternate forwards 1 submit;
+}
+
+.player {
+  width: 100% !important;
+  height: 370px !important;
+}
+
+.playerContent {
+  width: 100%;
+  max-width: 650px;
+  animation: 0.3s 1 alternate forwards scale;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.buttonContent {
+  display: flex;
+  gap: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.buttonContent>button {
+  background-color: #2a3544;
+  border: 1px solid #1a212b;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.title {
+  font-size: large;
+  font-weight: 500;
+}
+
+.loaderContent {
+  width: 100%;
+  max-width: 100vw;
+  display: flex;
+  justify-content: center;
+}
+
+.loader {
+  display: inline-block;
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.loader div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  margin: 8px;
+  border: 8px solid #fff;
+  border-radius: 50%;
+  animation: loader 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  border-color: #cef transparent transparent transparent;
+}
+
+.loader div:nth-child(1) {
+  animation-delay: -0.45s;
+  border-color: rgb(188, 230, 252) transparent transparent transparent;
+}
+
+.loader div:nth-child(2) {
+  animation-delay: -0.3s;
+  border-color: rgb(176, 225, 252) transparent transparent transparent;
+}
+
+.loader div:nth-child(3) {
+  animation-delay: -0.15s;
+  border-color: rgb(161, 219, 250) transparent transparent transparent;
+}
+
+.loader div:nth-child(4) {
+  border-color: rgb(151, 217, 253) transparent transparent transparent;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: #2a3544;
+  border: 1px solid #1a212b;
+  overflow-y: auto;
+  max-height: 35vh;
+  z-index: 100;
+  gap: 12px;
+}
+
+.searchList {
+  position: absolute;
+  width: 100%;
+  top: 100%;
+}
+
+.searchItem {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.searchItem:hover {
+  background: #38475b;
+}
+
+.saveBookmark {
+  width: 250px;
+  display: flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 6px;
+  padding: 2px 8px;
+}
+
+.bookmarks {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.openBookmarks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bookmarksList {
+  width: 100%;
+}
+
+@keyframes loader {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+
+@keyframes width {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes scale {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes submit {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes loading {
+  from {
+    transform: rotate(0);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 400px) {
+  .filmInputDiv {
+    margin: 0 12px;
+  }
+
+  .filmForm {
+    flex-direction: column;
+  }
+
+  .filmSubmit {
+    margin: 12px 0 0 0;
+    width: 100%
+  }
+
+  .saveBookmark {
+    min-height: 34px;
+    padding: 2px 44px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .saveBookmark img {
+    position: absolute;
+    left: 8px;
+  }
+
+  .bookmarks {
+    left: 12px;
+    right: 12px;
+  }
+
+  @keyframes scale {
+    from {
+      transform: scale(0);
+    }
+
+    to {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes submit {
+    from {
+      opacity: 0;
+      transform: translateY(-100%);
+      width: 0;
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      width: 100%;
+    }
+  }
+}
