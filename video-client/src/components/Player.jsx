@@ -11,7 +11,7 @@ function Player({ film }) {
   const [, forceUpdate] = useReducer(x => x + 1, 0);
 
   const bookmarks = getBookmarks();
-  console.log(bookmarks);
+
   const filmInBookmarks = !!bookmarks.find((item) => item.id === Number(film));
 
   const title = (response && response.find((data) => data.name)?.name) || null;
@@ -22,6 +22,7 @@ function Player({ film }) {
     if (!selectedPlayer && response && response.length) setPlayer(response[0].src);
     if (!response || !response.length) setPlayer('');
     if (response && response.length) document.title = title;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [response]);
 
   if (!film) return null;
@@ -36,8 +37,8 @@ function Player({ film }) {
           <button key={index} onClick={() => setPlayer(player.src)}>{player.type}</button>
         ))}
       </div>
-      {selectedPlayer && <iframe className="player" src={selectedPlayer} allow="fullscreen" allowFullScreen="allowfullscreen" frameBorder="0"></iframe>}
-      {selectedPlayer && <button className="saveBookmark" onClick={() => toggleBookmark({id: Number(film), name: title, poster}) || forceUpdate()}><img src={startImg} width={28}></img> {filmInBookmarks ? "Удалить из избранного" : "Добавить в избранное"}</button>}
+      {selectedPlayer && <iframe title="Player" className="player" src={selectedPlayer} allow="fullscreen" allowFullScreen="allowfullscreen" frameBorder="0"></iframe>}
+      {selectedPlayer && <button className="saveBookmark" onClick={() => toggleBookmark({id: Number(film), name: title, poster}) || forceUpdate()}><img src={startImg} width={28} alt="Star"></img> {filmInBookmarks ? "Удалить из избранного" : "Добавить в избранное"}</button>}
       {/* <Together /> */}
     </div>
   )

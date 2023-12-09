@@ -35,6 +35,7 @@ function App() {
 
   useEffect(() => {
     if (searchParams.has('f')) updateFilm(searchParams.get('f'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

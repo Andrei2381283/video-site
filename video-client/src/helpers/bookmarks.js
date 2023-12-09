@@ -9,7 +9,6 @@ export const addBookmark = (film) => {
 }
 
 export const toggleBookmark = (film) => {
-  console.log(film);
   const bookmarks = getBookmarks();
   const index = bookmarks.findIndex((item) => item.id === film.id);
   if(index === -1) bookmarks.push(film);

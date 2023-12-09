@@ -21,16 +21,17 @@ function Bookmarks({ onSelect }) {
     document.addEventListener('click', listener, false);
 
     return () => document.removeEventListener('click', listener);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <>
       <div className="bookmarks" ref={containerRef}>
-        <button className="openBookmarks" onClick={toggle}><img src={startImg} width={28}></img> Открыть избранные</button>
+        <button className="openBookmarks" onClick={toggle}><img src={startImg} width={28} alt="Star"></img> Открыть избранные</button>
         {isOpen && <div className="list bookmarksList">
           {
             bookmarks.map((item, key) => <div key={key} className="searchItem" onClick={() => onSelect(item.id)}>
-              <img src={item.poster} width={64} height={93} />
+              <img src={item.poster} width={64} height={93} alt="Poster" />
               <span>{item.name}</span>
             </div>)
           }
