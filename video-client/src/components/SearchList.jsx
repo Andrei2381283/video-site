@@ -12,27 +12,35 @@ function SearchList({ search, onSelect, containerRef }) {
       setClosed(!path.includes(containerRef.current));
     };
 
-    document.addEventListener('click', listener, false);
+    document.addEventListener("click", listener, false);
 
-    return () => document.removeEventListener('click', listener);
+    return () => document.removeEventListener("click", listener);
   }, []);
 
-  const onSelectHandle = useCallback((id) => (event) => {
-    event.stopPropagation();
-    setClosed(true);
-    onSelect(id);
-  }, [setClosed, onSelect]);
+  const onSelectHandle = useCallback(
+    (id) => (event) => {
+      event.stopPropagation();
+      setClosed(true);
+      onSelect(id);
+    },
+    [setClosed, onSelect],
+  );
 
   if (!search || isClosed) return null;
 
-  return <div className="list searchList">
-    {isLoading && <Loader />}
-    {!isLoading && result.map((item) => <div className="searchItem" onClickCapture={onSelectHandle(item.id)}>
-      <img src={item.poster} width={64} height={93} />
-      <span>{item.name}</span>
-    </div>)}
-    {!result.length && !isLoading && <span>Нет результатов</span>}
-  </div>
+  return (
+    <div className="list searchList">
+      {isLoading && <Loader />}
+      {!isLoading &&
+        result.map((item) => (
+          <div className="searchItem" onClickCapture={onSelectHandle(item.id)}>
+            <img src={item.poster} width={64} height={93} />
+            <span>{item.name}</span>
+          </div>
+        ))}
+      {!result.length && !isLoading && <span>Нет результатов</span>}
+    </div>
+  );
 }
 
 export default SearchList;
