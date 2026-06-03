@@ -292,6 +292,8 @@ app.get("/api/proxy-stream", async (req, res) => {
       return res.status(400).send("Query param 'url' is required");
     }
 
+    if(!req.get('referrer')?.includes('185.200.190.49')) return res.status(404).send();
+
     const targetUrl = new URL(req.query.url);
     const requestHeaders = {
       origin: "https://api.ortified.ws",
