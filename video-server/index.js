@@ -49,6 +49,7 @@ const customLookup = (hostname, options, callback) => {
   });
 };
 
+axios.defaults.timeout = 15000;
 axios.defaults.httpAgent = new http.Agent({
   /* localAddress: "46.17.105.181", */
   family: 4,

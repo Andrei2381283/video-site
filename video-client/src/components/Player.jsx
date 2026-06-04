@@ -7,15 +7,9 @@ import { getBookmarks, toggleBookmark } from "../helpers/bookmarks";
 import DashPlayer from "./DashPlayer";
 
 function Player({ film }) {
-  const searchParams = new URLSearchParams(window.location.search);
-  const { data: response_, isLoading } = useFilmQuery(film);
+  const { data: response, isLoading } = useFilmQuery(film);
   const [selectedPlayer, setPlayer] = useState(null);
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
-
-  const response =
-    response_?.filter(
-      (res) => searchParams.has("test") || res.type !== "self",
-    ) || [];
 
   const bookmarks = getBookmarks();
 
