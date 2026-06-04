@@ -307,10 +307,6 @@ function DashPlayer({
   }, [selectedSeason, seasons.length]);
 
   useEffect(() => {
-    setSelectedEpisode(0);
-  }, [selectedSeason]);
-
-  useEffect(() => {
     if (selectedEpisode >= episodes.length) {
       setSelectedEpisode(0);
     }
@@ -643,6 +639,7 @@ function DashPlayer({
                       .join(" ")}
                     onClick={() => {
                       setSelectedSeason(index);
+                      setSelectedEpisode(0);
                       setInitTime(0);
                     }}
                   >
