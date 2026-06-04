@@ -596,7 +596,9 @@ function DashPlayer({
 
   return (
     <div
-      className={[className, "dashContainer", hiddenControlsClass].filter(Boolean).join(" ")}
+      className={[className, "dashContainer", hiddenControlsClass]
+        .filter(Boolean)
+        .join(" ")}
       ref={containerRef}
       tabIndex={0}
       aria-label="Видеоплеер"
@@ -724,34 +726,6 @@ function DashPlayer({
             </div>
           )}
         </div>
-        {/* {!!videoQualities.length && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <span>Доступные качества</span>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => handleVideoQualityChange("auto")}
-              style={qualityButtonStyle(selectedVideoQuality === "auto")}
-            >
-              Авто
-            </button>
-            {videoQualities.map((quality) => (
-              <button
-                type="button"
-                key={getVideoQualityKey(quality)}
-                onClick={() =>
-                  handleVideoQualityChange(getVideoQualityKey(quality))
-                }
-                style={qualityButtonStyle(
-                  selectedVideoQuality === getVideoQualityKey(quality),
-                )}
-              >
-                {getVideoQualityLabel(quality)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )} */}
         <div
           style={{
             position: "absolute",
@@ -855,7 +829,14 @@ function DashPlayer({
               <button
                 type="button"
                 onClick={() => handleVideoQualityChange("auto")}
-                style={qualityButtonStyle(selectedVideoQuality === "auto")}
+                className={[
+                  "dashSelectListItem",
+                  selectedVideoQuality === 'auto'
+                    ? "is-active"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               >
                 Авто
               </button>
