@@ -7,6 +7,8 @@ import { ReactComponent as PauseIcon } from "../assets/pause.svg";
 import { ReactComponent as FullscreenIcon } from "../assets/fullscreen.svg";
 import { ReactComponent as VolumeIcon } from "../assets/volume.svg";
 import { ReactComponent as QualityIcon } from "../assets/quality.svg";
+import { SavedTime } from "./blocks/SavedTime";
+import { formatPlaybackTime } from "../helpers/player";
 
 function transformCdnUrl(inputUrl, unixTime) {
   const encodedPrefix = "/x-en-x/";
@@ -166,23 +168,6 @@ function qualityButtonStyle(isActive) {
   };
 }
 
-function formatPlaybackTime(value) {
-  if (!Number.isFinite(value) || value < 0) {
-    return "00:00";
-  }
-
-  const totalSeconds = Math.floor(value);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
 function getBufferedTime(videoElement) {
   if (!videoElement?.buffered?.length) {
     return 0;
@@ -204,6 +189,7 @@ function DashPlayer({
   data,
   autoPlay = false,
   className = "player",
+  film,
   ...videoProps
 }) {
   const videoRef = useRef(null);
@@ -218,6 +204,7 @@ function DashPlayer({
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isShowActionIcon, setIsShowActionIcon] = useState(true);
   const [volume, setVolume] = useState(1);
+  const [initTime, setInitTime] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [bufferedTime, setBufferedTime] = useState(0);
@@ -250,7 +237,7 @@ function DashPlayer({
     if (!data?.source?.dash) return null;
 
     return transformCdnUrl(data?.source?.dash);
-  }, [data?.source?.dash, episode?.dash]);
+  }, [data?.source?.dash, episode?.dash || episode?.dasha]);
 
   const audios = useMemo(() => {
     return episode?.audio || data?.source?.audio;
@@ -431,7 +418,8 @@ function DashPlayer({
     videoElement.addEventListener("seeked", syncTimelineState);
     player.on(MediaPlayer.events.STREAM_INITIALIZED, handleStreamInitialized);
     player.on(MediaPlayer.events.TRACK_CHANGE_RENDERED, handleTrackChange);
-    player.initialize(videoElement, url, autoPlay);
+    player.initialize(videoElement, url, autoPlay, initTime || undefined);
+    setInitTime(0);
 
     return () => {
       videoElement.removeEventListener("play", handlePlay);
@@ -528,7 +516,8 @@ function DashPlayer({
   };
 
   const handleTimelineChange = (event) => {
-    const nextTime = Number(event.target.value);
+    const nextTime =
+      typeof event === "number" ? event : Number(event.target.value);
 
     if (!videoRef.current || !Number.isFinite(nextTime)) return;
 
@@ -550,7 +539,6 @@ function DashPlayer({
     if (!container) return undefined;
 
     const handleKeyDown = (event) => {
-      console.log(event);
       if (event.code === "Space") {
         event.preventDefault();
         togglePlay();
@@ -653,7 +641,10 @@ function DashPlayer({
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    onClick={() => setSelectedSeason(index)}
+                    onClick={() => {
+                      setSelectedSeason(index);
+                      setInitTime(0);
+                    }}
                   >
                     {getSeasonLabel(season, index)}
                   </button>
@@ -684,7 +675,10 @@ function DashPlayer({
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    onClick={() => setSelectedEpisode(index)}
+                    onClick={() => {
+                      setSelectedEpisode(index);
+                      setInitTime(0);
+                    }}
                   >
                     {getEpisodeLabel(episodeItem, index)}
                   </button>
@@ -750,6 +744,20 @@ function DashPlayer({
             )}
           </div>
         )}
+        <SavedTime
+          currentSeason={selectedSeason}
+          currentEpisode={selectedEpisode}
+          currentTime={currentTime}
+          hasSeries={!!seasons.length}
+          isPlaying={isPlaying}
+          film={film}
+          change={(timeData) => {
+            setSelectedSeason(timeData.currentSeason);
+            setSelectedEpisode(timeData.currentEpisode);
+            handleTimelineChange(timeData.currentTime);
+            setInitTime(timeData.currentTime);
+          }}
+        />
         <div
           className={["dashBottomControls", hiddenControlsClass]
             .filter(Boolean)
@@ -831,9 +839,7 @@ function DashPlayer({
                 onClick={() => handleVideoQualityChange("auto")}
                 className={[
                   "dashSelectListItem",
-                  selectedVideoQuality === 'auto'
-                    ? "is-active"
-                    : "",
+                  selectedVideoQuality === "auto" ? "is-active" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}

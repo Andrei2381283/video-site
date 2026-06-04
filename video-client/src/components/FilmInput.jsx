@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import SearchList from "./SearchList";
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 
 function FilmInput({ defaultFilm, submit }) {
   const [inputValue, setInputValue] = useState(defaultFilm || "");

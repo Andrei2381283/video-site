@@ -339,6 +339,10 @@ button:disabled {
 
 .dashContainer.is-hidden {
   cursor: none;
+
+  .savedTimeContainer {
+    position: absolute;
+  }
 }
 
 .dashContainer button:focus, .dashContainer input:focus {
@@ -695,4 +699,21 @@ button:disabled {
   border-radius: 10px;
   height: 42px;
   min-height: 42px;
+}
+
+.savedTimeContainer {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 12;
+  border: 1px solid #3a4d66;
+  background-color: #0e1218;
+  padding: 6px 12px;
+  border-radius: 12px;
+  gap: 8px;
 }

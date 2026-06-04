@@ -63,7 +63,7 @@ function Player({ film }) {
         ></iframe>
       )}
       {selectedPlayer?.data && (
-        <DashPlayer data={selectedPlayer?.data} />
+        <DashPlayer data={selectedPlayer?.data} film={film} />
       )}
       {selectedPlayer && (
         <button
