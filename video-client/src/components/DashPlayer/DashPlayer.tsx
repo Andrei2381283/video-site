@@ -13,7 +13,7 @@ import { ReactComponent as PauseIcon } from "../../assets/pause.svg";
 import { ReactComponent as FullscreenIcon } from "../../assets/fullscreen.svg";
 import { ReactComponent as VolumeIcon } from "../../assets/volume.svg";
 import { ReactComponent as QualityIcon } from "../../assets/quality.svg";
-import { SavedTime } from "../blocks/SavedTime/SavedTime";
+import { SavedTime } from "./SavedTime/SavedTime";
 import { formatPlaybackTime } from "../../helpers/player";
 import { DashPlayerData } from "../../types/player";
 import styles from "./DashPlayer.module.css";
@@ -32,6 +32,8 @@ import {
   transformCdnUrl,
 } from "./helpers";
 import { isMobile } from "helpers/isMobile";
+import { CurrentTime } from "./CurrentTime/CurrentTime";
+import { TimeLine } from "./TimeLine/TimeLine";
 
 //Дописать точные типы событий dashjs после проверки runtime-структуры библиотеки.
 type DashEvent = any;
@@ -69,9 +71,6 @@ function DashPlayer({
   const [isShowActionIcon, setIsShowActionIcon] = useState(true);
   const [volume, setVolume] = useState(1);
   const [initTime, setInitTime] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [bufferedTime, setBufferedTime] = useState(0);
   const [audioTracks, setAudioTracks] = useState<DashTrack[]>([]);
   const [selectedAudioTrack, setSelectedAudioTrack] = useState("");
   const [videoQualities, setVideoQualities] = useState<DashRepresentation[]>(
@@ -257,18 +256,6 @@ function DashPlayer({
       setIsPlaying(false);
     };
 
-    const syncTimelineState = () => {
-      setCurrentTime(
-        Number.isFinite(videoElement.currentTime)
-          ? videoElement.currentTime
-          : 0,
-      );
-      setDuration(
-        Number.isFinite(videoElement.duration) ? videoElement.duration : 0,
-      );
-      setBufferedTime(getBufferedTime(videoElement));
-    };
-
     player.addRequestInterceptor((request: DashRequest) => {
       if (request?.url) {
         request.url = getProxyUrl(request.url);
@@ -279,12 +266,6 @@ function DashPlayer({
     videoElement.addEventListener("play", handlePlay);
     videoElement.addEventListener("pause", handlePause);
     videoElement.addEventListener("ended", handlePause);
-    videoElement.addEventListener("loadedmetadata", syncTimelineState);
-    videoElement.addEventListener("durationchange", syncTimelineState);
-    videoElement.addEventListener("timeupdate", syncTimelineState);
-    videoElement.addEventListener("progress", syncTimelineState);
-    videoElement.addEventListener("seeking", syncTimelineState);
-    videoElement.addEventListener("seeked", syncTimelineState);
     player.on(MediaPlayer.events.STREAM_INITIALIZED, handleStreamInitialized);
     player.on(MediaPlayer.events.TRACK_CHANGE_RENDERED, handleTrackChange);
     player.initialize(videoElement, url, autoPlay, initTime || undefined);
@@ -294,12 +275,6 @@ function DashPlayer({
       videoElement.removeEventListener("play", handlePlay);
       videoElement.removeEventListener("pause", handlePause);
       videoElement.removeEventListener("ended", handlePause);
-      videoElement.removeEventListener("loadedmetadata", syncTimelineState);
-      videoElement.removeEventListener("durationchange", syncTimelineState);
-      videoElement.removeEventListener("timeupdate", syncTimelineState);
-      videoElement.removeEventListener("progress", syncTimelineState);
-      videoElement.removeEventListener("seeking", syncTimelineState);
-      videoElement.removeEventListener("seeked", syncTimelineState);
       player.off(
         MediaPlayer.events.STREAM_INITIALIZED,
         handleStreamInitialized,
@@ -307,9 +282,6 @@ function DashPlayer({
       player.off(MediaPlayer.events.TRACK_CHANGE_RENDERED, handleTrackChange);
       playerRef.current = null;
       isInitialAudioTrackAppliedRef.current = false;
-      setCurrentTime(0);
-      setDuration(0);
-      setBufferedTime(0);
       setAudioTracks([]);
       setSelectedAudioTrack("");
       setVideoQualities([]);
@@ -386,18 +358,6 @@ function DashPlayer({
     setVolume(Number(event.target.value));
   };
 
-  const handleTimelineChange = (
-    event: ChangeEvent<HTMLInputElement> | number,
-  ) => {
-    const nextTime =
-      typeof event === "number" ? event : Number(event.target.value);
-
-    if (!videoRef.current || !Number.isFinite(nextTime)) return;
-
-    videoRef.current.currentTime = nextTime;
-    setCurrentTime(nextTime);
-  };
-
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
@@ -423,11 +383,6 @@ function DashPlayer({
     }
   };
 
-  const safeDuration = duration > 0 ? duration : 0;
-  const playedPercent = safeDuration ? (currentTime / safeDuration) * 100 : 0;
-  const bufferedPercent = safeDuration
-    ? (bufferedTime / safeDuration) * 100
-    : 0;
   const orderedAudioTracks = useMemo(
     () => getOrderedAudioTracks(audioTracks, audios),
     [audioTracks, audios],
@@ -608,40 +563,21 @@ function DashPlayer({
         <SavedTime
           currentSeason={selectedSeason}
           currentEpisode={selectedEpisode}
-          currentTime={currentTime}
           hasSeries={!!seasons.length}
           isPlaying={isPlaying}
           film={film}
           change={(timeData) => {
             setSelectedSeason(timeData.currentSeason);
             setSelectedEpisode(timeData.currentEpisode);
-            handleTimelineChange(timeData.currentTime);
+            if (videoRef.current)
+              videoRef.current.currentTime = timeData.currentTime;
             setInitTime(timeData.currentTime);
           }}
+          videoRef={videoRef}
+          url={url}
         />
         <div className={cx(styles.dashBottomControls, hiddenControlsClass)}>
-          <div className={styles.dashBottomTimeline}>
-            <div className={styles.dashTimelineTrack}>
-              <div
-                className={styles.dashTimelineBuffered}
-                style={{ width: `${Math.min(bufferedPercent, 100)}%` }}
-              />
-              <div
-                className={styles.dashTimelineProgress}
-                style={{ width: `${Math.min(playedPercent, 100)}%` }}
-              />
-              <input
-                type="range"
-                min="0"
-                max={safeDuration || 0}
-                step="0.1"
-                value={Math.min(currentTime, safeDuration || 0)}
-                onChange={handleTimelineChange}
-                className={styles.dashTimelineSlider}
-                aria-label="Перемотка видео"
-              />
-            </div>
-          </div>
+          <TimeLine videoRef={videoRef} url={url} />
           <button
             type="button"
             className={styles.dashBottomItem}
@@ -654,11 +590,7 @@ function DashPlayer({
               <PlayIcon aria-hidden="true" />
             )}
           </button>
-          <div className={styles.dashTimeInfo}>
-            <span>{formatPlaybackTime(currentTime)}</span>
-            <span>/</span>
-            <span>{formatPlaybackTime(duration)}</span>
-          </div>
+          <CurrentTime videoRef={videoRef} url={url} />
           <div style={{ width: "100%" }} />
           <div className={styles.dashVolumeControl}>
             <button
