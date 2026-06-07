@@ -1,0 +1,44 @@
+.bookmarks {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.openBookmarks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bookmarksList {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: #2a3544;
+  border: 1px solid #1a212b;
+  overflow-y: auto;
+  max-height: 35vh;
+  z-index: 100;
+  gap: 12px;
+  width: 100%;
+}
+
+.bookmarkItem {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.bookmarkItem:hover {
+  background: #38475b;
+}
+
+@media (max-width: 400px) {
+  .bookmarks {
+    left: 12px;
+    right: 12px;
+  }
+}

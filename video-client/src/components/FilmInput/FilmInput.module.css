@@ -1,0 +1,75 @@
+.filmForm {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 450px;
+  max-width: 100%;
+  position: relative;
+  margin-top: 72px;
+}
+
+.filmInputDiv {
+  position: relative;
+  width: 100%;
+  animation: 0.5s 1 alternate forwards width;
+}
+
+.filmInput {
+  padding: 8px 12px;
+  width: 100%;
+  max-width: 100%;
+  font-size: 16px;
+  outline: none;
+  background: #2a3544;
+  border: 1px solid #1a212b;
+}
+
+.filmSubmit {
+  margin-left: 12px;
+  opacity: 0;
+  animation: 0.5s 0.1s alternate forwards 1 submit;
+}
+
+@keyframes width {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes submit {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 400px) {
+  .filmInputDiv {
+    margin: 0 12px;
+  }
+
+  .filmForm {
+    flex-direction: column;
+  }
+
+  .filmSubmit {
+    margin: 12px 0 0 0;
+    width: 100%;
+  }
+
+  @keyframes submit {
+    from {
+      opacity: 0;
+      transform: translateY(-100%);
+      width: 0;
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      width: 100%;
+    }
+  }
+}

@@ -1,4 +1,4 @@
-export function formatPlaybackTime(value) {
+export function formatPlaybackTime(value: number): string {
   if (!Number.isFinite(value) || value < 0) {
     return "00:00";
   }

@@ -1,10 +1,13 @@
 import throttle from "lodash/throttle";
-import React, { useEffect, useRef, useState } from "react";
-import { safeJsonParse } from "../../helpers/safeJsonParse";
-import { formatPlaybackTime } from "../../helpers/player";
+import { useEffect, useRef, useState } from "react";
+import { safeJsonParse } from "../../../helpers/safeJsonParse";
+import { formatPlaybackTime } from "../../../helpers/player";
+import { SavedPlaybackTime } from "../../../types/player";
+import styles from "./SavedTime.module.css";
 
 const saveTime = throttle(
-  (film, currentSeason, currentEpisode, currentTime) => {
+  (film: string | number | undefined, currentSeason: number, currentEpisode: number, currentTime: number) => {
+    if (!film) return;
     localStorage.setItem(
       "savedTime:" + film,
       JSON.stringify({ currentSeason, currentEpisode, currentTime }),
@@ -12,6 +15,16 @@ const saveTime = throttle(
   },
   2000,
 );
+
+interface SavedTimeProps {
+  currentSeason: number;
+  currentEpisode: number;
+  currentTime: number;
+  isPlaying: boolean;
+  film?: string | number;
+  hasSeries: boolean;
+  change: (timeData: SavedPlaybackTime) => void;
+}
 
 export const SavedTime = ({
   currentSeason,
@@ -21,12 +34,11 @@ export const SavedTime = ({
   film,
   hasSeries,
   change,
-}) => {
-  const storedTimeRef = useRef(
-    safeJsonParse(localStorage.getItem("savedTime:" + film)),
+}: SavedTimeProps) => {
+  const storedTimeRef = useRef<SavedPlaybackTime | null>(
+    safeJsonParse<SavedPlaybackTime>(film ? localStorage.getItem("savedTime:" + film) : null),
   );
   const [show, setShow] = useState(true);
-
   const storedTime = storedTimeRef.current;
 
   useEffect(() => {
@@ -39,18 +51,18 @@ export const SavedTime = ({
     }
   }, [isPlaying, show]);
 
-  if (!show || !change || !Number.isFinite(storedTime?.currentTime))
+  if (!show || !change || !storedTime || !Number.isFinite(storedTime.currentTime)) {
     return null;
+  }
 
   return (
-    <div className="savedTimeContainer">
+    <div className={styles.savedTimeContainer}>
       Вы остановились на{" "}
       {hasSeries
         ? `${storedTime.currentSeason + 1} сезоне, ${storedTime.currentEpisode + 1} серии,`
         : ""}{" "}
       {formatPlaybackTime(storedTime.currentTime)}
       <button
-        className="button"
         onClick={() => {
           change(storedTime);
           setShow(false);

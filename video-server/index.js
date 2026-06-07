@@ -289,7 +289,7 @@ app.get("/api/film/:id", async (req, res) => {
 
 app.get("/api/proxy-stream", async (req, res) => {
   try {
-    if(!req.get('referer')?.includes('https://v.pepela.net')) return res.status(404).send();
+    if(!req.get('referer')?.includes('https://v.pepela.net') && !req.get('referer')?.includes('http://localhost:3000')) return res.status(404).send();
     
     if (!req.query.url || typeof req.query.url !== "string") {
       return res.status(400).send("Query param 'url' is required");

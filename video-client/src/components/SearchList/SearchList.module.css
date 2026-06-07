@@ -1,0 +1,28 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: #2a3544;
+  border: 1px solid #1a212b;
+  overflow-y: auto;
+  max-height: 35vh;
+  z-index: 100;
+  gap: 12px;
+}
+
+.searchList {
+  position: absolute;
+  width: 100%;
+  top: 100%;
+}
+
+.searchItem {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.searchItem:hover {
+  background: #38475b;
+}

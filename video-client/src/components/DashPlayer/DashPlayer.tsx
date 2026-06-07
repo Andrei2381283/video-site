@@ -1,204 +1,68 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  VideoHTMLAttributes,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { MediaPlayer } from "dashjs";
-import { useMemo } from "react";
-import { SERVER_URL } from "../constants";
-import { ReactComponent as PlayIcon } from "../assets/play.svg";
-import { ReactComponent as PauseIcon } from "../assets/pause.svg";
-import { ReactComponent as FullscreenIcon } from "../assets/fullscreen.svg";
-import { ReactComponent as VolumeIcon } from "../assets/volume.svg";
-import { ReactComponent as QualityIcon } from "../assets/quality.svg";
-import { SavedTime } from "./blocks/SavedTime";
-import { formatPlaybackTime } from "../helpers/player";
+import { ReactComponent as PlayIcon } from "../../assets/play.svg";
+import { ReactComponent as PauseIcon } from "../../assets/pause.svg";
+import { ReactComponent as FullscreenIcon } from "../../assets/fullscreen.svg";
+import { ReactComponent as VolumeIcon } from "../../assets/volume.svg";
+import { ReactComponent as QualityIcon } from "../../assets/quality.svg";
+import { SavedTime } from "../blocks/SavedTime/SavedTime";
+import { formatPlaybackTime } from "../../helpers/player";
+import { DashPlayerData } from "../../types/player";
+import styles from "./DashPlayer.module.css";
+import {
+  DashRepresentation,
+  DashTrack,
+  getAudioTrackKey,
+  getBufferedTime,
+  getEpisodeLabel,
+  getInitialAudioTrack,
+  getOrderedAudioTracks,
+  getProxyUrl,
+  getSeasonLabel,
+  getVideoQualityKey,
+  getVideoQualityLabel,
+  transformCdnUrl,
+} from "./helpers";
+import { isMobile } from "helpers/isMobile";
 
-function transformCdnUrl(inputUrl, unixTime) {
-  const encodedPrefix = "/x-en-x/";
-  const sourceAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-  const targetAlphabet = "DlChEXitLONYRkFjAsnBbymWzSHMqKPgQZpvwerofJTVdIuUcxaG";
+//Дописать точные типы событий dashjs после проверки runtime-структуры библиотеки.
+type DashEvent = any;
+//Дописать точные типы request interceptor dashjs после проверки runtime-структуры библиотеки.
+type DashRequest = any;
 
-  function isAlreadyTransformed(url) {
-    return url.includes(encodedPrefix);
-  }
+type DashPlayerProps = {
+  data: DashPlayerData;
+  autoPlay?: boolean;
+  className?: string;
+  film?: string | number;
+} & VideoHTMLAttributes<HTMLVideoElement>;
 
-  function replaceLetters(value) {
-    return value
-      .split("")
-      .map((char) => {
-        const index = sourceAlphabet.indexOf(char);
-        return index > -1 ? targetAlphabet[index] : char;
-      })
-      .join("");
-  }
-
-  if (isAlreadyTransformed(inputUrl)) {
-    return inputUrl;
-  }
-
-  const url = new URL(inputUrl);
-
-  const timeMs = unixTime ? unixTime * 1000 : Date.now();
-  const hour = Math.round(timeMs / 1000 / 60 / 60);
-
-  const payload = `${hour}/${url.pathname}${url.search}`;
-  const encodedPayload = replaceLetters(btoa(payload));
-
-  return `${url.origin}${encodedPrefix}${encodedPayload}`;
-}
-
-function getProxyUrl(url) {
-  if (!url) return null;
-  if (url.startsWith(`${SERVER_URL}/proxy-stream?url=`)) return url;
-
-  return `${SERVER_URL}/proxy-stream?url=${encodeURIComponent(url)}`;
-}
-
-function getAudioTrackKey(track) {
-  return [track?.id, track?.index, track?.lang, track?.codec].join(":");
-}
-
-function getAudioTrackLabel(track, index) {
-  const label = track?.labels?.[0]?.text;
-  const lang = track?.lang;
-  const roles = track?.roles
-    ?.map((role) => role.value)
-    .filter(Boolean)
-    .join(", ");
-  const parts = [
-    label,
-    lang && lang !== label ? lang : null,
-    roles || null,
-    track?.codec || null,
-  ].filter(Boolean);
-
-  return parts.length ? parts.join(" | ") : `Audio ${index + 1}`;
-}
-
-function getOrderedAudioTracks(tracks, audioMeta) {
-  if (!tracks.length) {
-    return [];
-  }
-
-  const names = Array.isArray(audioMeta?.names) ? audioMeta.names : [];
-  const order = Array.isArray(audioMeta?.order) ? audioMeta.order : [];
-  const usedTrackIndices = new Set();
-  const orderedTracks = [];
-
-  const appendTrack = (track, trackIndex) => {
-    orderedTracks.push({
-      track,
-      trackKey: getAudioTrackKey(track),
-      label:
-        names[trackIndex] || getAudioTrackLabel(track, orderedTracks.length),
-    });
-  };
-
-  order.forEach((trackIndex) => {
-    if (
-      !Number.isInteger(trackIndex) ||
-      trackIndex < 0 ||
-      trackIndex >= tracks.length ||
-      usedTrackIndices.has(trackIndex)
-    ) {
-      return;
-    }
-
-    usedTrackIndices.add(trackIndex);
-    appendTrack(tracks[trackIndex], trackIndex);
-  });
-
-  tracks.forEach((track, trackIndex) => {
-    if (usedTrackIndices.has(trackIndex)) {
-      return;
-    }
-
-    appendTrack(track, trackIndex);
-  });
-
-  return orderedTracks;
-}
-
-function getSeasonLabel(season, index) {
-  const seasonNumber = season?.season || index + 1;
-
-  return `Сезон ${seasonNumber}`;
-}
-
-function getEpisodeLabel(episode, index) {
-  const episodeNumber = episode?.episode || index + 1;
-
-  return `Эпизод ${episodeNumber}`;
-}
-
-function getInitialAudioTrack(tracks, audioMeta) {
-  const order = Array.isArray(audioMeta?.order) ? audioMeta.order : [];
-  const firstTrackIndex = order.find(
-    (trackIndex) =>
-      Number.isInteger(trackIndex) &&
-      trackIndex >= 0 &&
-      trackIndex < tracks.length,
-  );
-
-  if (firstTrackIndex === undefined) {
-    return null;
-  }
-
-  return tracks[firstTrackIndex] || null;
-}
-
-function getVideoQualityKey(representation) {
-  return [
-    representation?.width,
-    representation?.height,
-    representation?.bandwidth,
-    representation?.id,
-  ].join(":");
-}
-
-function getVideoQualityLabel(representation) {
-  if (!representation) return "";
-
-  return representation.height;
-}
-
-function qualityButtonStyle(isActive) {
-  return {
-    padding: "6px 12px",
-    background: isActive ? "#3a4d66" : "#2a3544",
-    border: "1px solid #1a212b",
-    cursor: "pointer",
-  };
-}
-
-function getBufferedTime(videoElement) {
-  if (!videoElement?.buffered?.length) {
-    return 0;
-  }
-
-  for (let index = 0; index < videoElement.buffered.length; index += 1) {
-    const start = videoElement.buffered.start(index);
-    const end = videoElement.buffered.end(index);
-
-    if (videoElement.currentTime >= start && videoElement.currentTime <= end) {
-      return end;
-    }
-  }
-
-  return videoElement.buffered.end(videoElement.buffered.length - 1);
-}
+const cx = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(" ");
 
 function DashPlayer({
   data,
   autoPlay = false,
-  className = "player",
+  className,
   film,
   ...videoProps
-}) {
-  const videoRef = useRef(null);
-  /** @type {React.RefObject<import("dashjs").MediaPlayerClass>} */
-  const playerRef = useRef(null);
-  const containerRef = useRef(null);
+}: DashPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const playerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const isInitialAudioTrackAppliedRef = useRef(false);
-  const controlsHideTimeoutRef = useRef(null);
-  const safeContainerRef = useRef(null);
+  const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const safeContainerRef = useRef<HTMLDivElement | null>(null);
   const [isInitPhase, setIsInitPhase] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
@@ -208,16 +72,18 @@ function DashPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [bufferedTime, setBufferedTime] = useState(0);
-  const [audioTracks, setAudioTracks] = useState([]);
+  const [audioTracks, setAudioTracks] = useState<DashTrack[]>([]);
   const [selectedAudioTrack, setSelectedAudioTrack] = useState("");
-  const [videoQualities, setVideoQualities] = useState([]);
+  const [videoQualities, setVideoQualities] = useState<DashRepresentation[]>(
+    [],
+  );
   const [selectedVideoQuality, setSelectedVideoQuality] = useState("auto");
   const [selectedSeason, setSelectedSeason] = useState(0);
   const [selectedEpisode, setSelectedEpisode] = useState(0);
 
   const seasons = useMemo(() => {
     return [...(data?.playlist?.seasons || [])].sort(
-      (prev, curr) => prev.season - curr.season,
+      (prev, curr) => (prev.season || 0) - (curr.season || 0),
     );
   }, [data?.playlist?.seasons]);
 
@@ -229,15 +95,18 @@ function DashPlayer({
     return episodes?.[selectedEpisode] || null;
   }, [episodes, selectedEpisode]);
 
+  const episodeDash = episode?.dash || episode?.dasha;
+  const sourceDash = data?.source?.dash;
+
   const url = useMemo(() => {
-    if (episode?.dash || episode?.dasha) {
-      return transformCdnUrl(episode.dash || episode?.dasha);
+    if (episodeDash) {
+      return transformCdnUrl(episodeDash);
     }
 
-    if (!data?.source?.dash) return null;
+    if (!sourceDash) return null;
 
-    return transformCdnUrl(data?.source?.dash);
-  }, [data?.source?.dash, episode?.dash || episode?.dasha]);
+    return transformCdnUrl(sourceDash);
+  }, [episodeDash, sourceDash]);
 
   const audios = useMemo(() => {
     return episode?.audio || data?.source?.audio;
@@ -264,7 +133,7 @@ function DashPlayer({
   useEffect(() => {
     if (!containerRef.current || !isInitPhase) return;
     containerRef.current.focus();
-  }, [url]);
+  }, [isInitPhase, url]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -274,11 +143,15 @@ function DashPlayer({
 
     clearControlsHideTimeout();
     setIsControlsVisible(true);
+    // clearControlsHideTimeout работает только с ref, поэтому не должен управлять перезапуском эффекта.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying]);
 
   useEffect(() => {
     return () => {
-      clearControlsHideTimeout();
+      if (controlsHideTimeoutRef.current) {
+        clearTimeout(controlsHideTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -291,7 +164,7 @@ function DashPlayer({
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [isPlaying]);
+  }, [isInitPhase, isPlaying]);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -369,7 +242,7 @@ function DashPlayer({
       syncVideoQualities();
     };
 
-    const handleTrackChange = (event) => {
+    const handleTrackChange = (event: DashEvent) => {
       if (event?.mediaType === "audio") {
         syncAudioTracks();
       }
@@ -396,7 +269,7 @@ function DashPlayer({
       setBufferedTime(getBufferedTime(videoElement));
     };
 
-    player.addRequestInterceptor((request) => {
+    player.addRequestInterceptor((request: DashRequest) => {
       if (request?.url) {
         request.url = getProxyUrl(request.url);
       }
@@ -443,9 +316,11 @@ function DashPlayer({
       setSelectedVideoQuality("auto");
       player.reset();
     };
+    // initTime сбрасывается внутри эффекта, поэтому не должен повторно инициализировать тот же stream.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, autoPlay]);
 
-  const handleAudioTrackChange = (trackKey) => {
+  const handleAudioTrackChange = (trackKey: string) => {
     const track = audioTracks.find(
       (item) => getAudioTrackKey(item) === trackKey,
     );
@@ -457,7 +332,7 @@ function DashPlayer({
     }
   };
 
-  const handleVideoQualityChange = (qualityKey) => {
+  const handleVideoQualityChange = (qualityKey: string) => {
     setSelectedVideoQuality(qualityKey);
 
     if (!playerRef.current) return;
@@ -507,11 +382,13 @@ function DashPlayer({
     }
   };
 
-  const handleVolumeChange = (event) => {
+  const handleVolumeChange = (event: ChangeEvent<HTMLInputElement>) => {
     setVolume(Number(event.target.value));
   };
 
-  const handleTimelineChange = (event) => {
+  const handleTimelineChange = (
+    event: ChangeEvent<HTMLInputElement> | number,
+  ) => {
     const nextTime =
       typeof event === "number" ? event : Number(event.target.value);
 
@@ -526,33 +403,25 @@ function DashPlayer({
       document.exitFullscreen();
       return;
     }
-    containerRef.current?.requestFullscreen();
+    containerRef.current?.requestFullscreen().then(() => {
+      if (isMobile()) window.screen.orientation.lock("landscape");
+    });
   };
 
-  useEffect(() => {
-    const container = containerRef.current;
+  const handleContainerKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.code === "Space") {
+      event.preventDefault();
+      togglePlay();
+      return;
+    }
 
-    if (!container) return undefined;
-
-    const handleKeyDown = (event) => {
-      if (event.code === "Space") {
-        event.preventDefault();
-        togglePlay();
-        return;
-      }
-
-      if (event.code === "KeyF") {
-        event.preventDefault();
-        toggleFullscreen();
-      }
-    };
-
-    container.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      container.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
+    if (event.code === "KeyF") {
+      event.preventDefault();
+      toggleFullscreen();
+    }
+  };
 
   const safeDuration = duration > 0 ? duration : 0;
   const playedPercent = safeDuration ? (currentTime / safeDuration) * 100 : 0;
@@ -574,15 +443,13 @@ function DashPlayer({
     ? getEpisodeLabel(episodes[selectedEpisode], selectedEpisode)
     : "Эпизод";
   const hiddenControlsClass =
-    isPlaying && !isControlsVisible ? "is-hidden" : "";
+    isPlaying && !isControlsVisible ? styles.isHidden : "";
 
   if (!url) return null;
 
   return (
     <div
-      className={[className, "dashContainer", hiddenControlsClass]
-        .filter(Boolean)
-        .join(" ")}
+      className={cx(className, styles.dashContainer, hiddenControlsClass)}
       ref={containerRef}
       tabIndex={0}
       aria-label="Видеоплеер"
@@ -604,36 +471,33 @@ function DashPlayer({
           toggleFullscreen();
         }
       }}
+      onKeyDown={handleContainerKeyDown}
       onMouseMove={showControls}
       onTouchStart={showControls}
       onTouchMove={showControls}
     >
       <div ref={safeContainerRef} style={{ width: "100%", height: "100%" }}>
-        <div
-          className={["dashTopControls", hiddenControlsClass]
-            .filter(Boolean)
-            .join(" ")}
-        >
+        <div className={cx(styles.dashTopControls, hiddenControlsClass)}>
           {!!seasons.length && (
-            <div className="dashSelectControl">
+            <div className={styles.dashSelectControl}>
               <button
                 type="button"
-                className="dashTopItem dashSelectTrigger"
+                className={cx(styles.dashTopItem, styles.dashSelectTrigger)}
                 aria-label="Сезон"
                 aria-haspopup="true"
               >
-                <span className="dashSelectTriggerLabel">
+                <span className={styles.dashSelectTriggerLabel}>
                   {selectedSeasonLabel}
                 </span>
               </button>
-              <div className="dashSelectList">
+              <div className={styles.dashSelectList}>
                 {seasons.map((season, index) => (
                   <button
                     type="button"
                     key={`${season?.season || index}`}
                     className={[
-                      "dashSelectListItem",
-                      selectedSeason === index ? "is-active" : "",
+                      styles.dashSelectListItem,
+                      selectedSeason === index ? styles.isActive : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -650,25 +514,25 @@ function DashPlayer({
             </div>
           )}
           {!!episodes.length && (
-            <div className="dashSelectControl">
+            <div className={styles.dashSelectControl}>
               <button
                 type="button"
-                className="dashTopItem dashSelectTrigger"
+                className={cx(styles.dashTopItem, styles.dashSelectTrigger)}
                 aria-label="Эпизод"
                 aria-haspopup="true"
               >
-                <span className="dashSelectTriggerLabel">
+                <span className={styles.dashSelectTriggerLabel}>
                   {selectedEpisodeLabel}
                 </span>
               </button>
-              <div className="dashSelectList">
+              <div className={styles.dashSelectList}>
                 {episodes.map((episodeItem, index) => (
                   <button
                     type="button"
                     key={`${episodeItem?.episode || index}-${episodeItem?.dash || index}`}
                     className={[
-                      "dashSelectListItem",
-                      selectedEpisode === index ? "is-active" : "",
+                      styles.dashSelectListItem,
+                      selectedEpisode === index ? styles.isActive : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -684,26 +548,26 @@ function DashPlayer({
             </div>
           )}
           {!!audioTracks.length && (
-            <div className="dashSelectControl">
+            <div className={styles.dashSelectControl}>
               <button
                 type="button"
-                className="dashTopItem dashSelectTrigger"
+                className={cx(styles.dashTopItem, styles.dashSelectTrigger)}
                 aria-label="Аудиодорожка"
                 aria-haspopup="true"
               >
-                <span className="dashSelectTriggerLabel">
+                <span className={styles.dashSelectTriggerLabel}>
                   {selectedAudioTrackLabel}
                 </span>
               </button>
-              <div className="dashSelectList">
+              <div className={styles.dashSelectList}>
                 {orderedAudioTracks.map(({ trackKey, label }) => {
                   return (
                     <button
                       type="button"
                       key={trackKey}
                       className={[
-                        "dashSelectListItem",
-                        selectedAudioTrack === trackKey ? "is-active" : "",
+                        styles.dashSelectListItem,
+                        selectedAudioTrack === trackKey ? styles.isActive : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -727,13 +591,13 @@ function DashPlayer({
         >
           <video
             ref={videoRef}
-            className="dashPlayer"
+            className={styles.dashPlayer}
             autoPlay={false}
             {...videoProps}
           />
         </div>
         {(isShowActionIcon || isInitPhase) && (
-          <div className="dashActionIcon">
+          <div className={styles.dashActionIcon}>
             {isPlaying || isInitPhase ? (
               <PlayIcon aria-hidden="true" />
             ) : (
@@ -755,19 +619,15 @@ function DashPlayer({
             setInitTime(timeData.currentTime);
           }}
         />
-        <div
-          className={["dashBottomControls", hiddenControlsClass]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <div className="dashBottomTimeline">
-            <div className="dashTimelineTrack">
+        <div className={cx(styles.dashBottomControls, hiddenControlsClass)}>
+          <div className={styles.dashBottomTimeline}>
+            <div className={styles.dashTimelineTrack}>
               <div
-                className="dashTimelineBuffered"
+                className={styles.dashTimelineBuffered}
                 style={{ width: `${Math.min(bufferedPercent, 100)}%` }}
               />
               <div
-                className="dashTimelineProgress"
+                className={styles.dashTimelineProgress}
                 style={{ width: `${Math.min(playedPercent, 100)}%` }}
               />
               <input
@@ -777,14 +637,14 @@ function DashPlayer({
                 step="0.1"
                 value={Math.min(currentTime, safeDuration || 0)}
                 onChange={handleTimelineChange}
-                className="dashTimelineSlider"
+                className={styles.dashTimelineSlider}
                 aria-label="Перемотка видео"
               />
             </div>
           </div>
           <button
             type="button"
-            className="dashBottomItem"
+            className={styles.dashBottomItem}
             aria-label="Воспроизвести или поставить на паузу"
             onClick={togglePlay}
           >
@@ -794,21 +654,21 @@ function DashPlayer({
               <PlayIcon aria-hidden="true" />
             )}
           </button>
-          <div className="dashTimeInfo">
+          <div className={styles.dashTimeInfo}>
             <span>{formatPlaybackTime(currentTime)}</span>
             <span>/</span>
             <span>{formatPlaybackTime(duration)}</span>
           </div>
           <div style={{ width: "100%" }} />
-          <div className="dashVolumeControl">
+          <div className={styles.dashVolumeControl}>
             <button
               type="button"
-              className="dashBottomItem"
+              className={styles.dashBottomItem}
               aria-label="Громкость"
             >
               <VolumeIcon aria-hidden="true" />
             </button>
-            <div className="dashVolumeSliderWrapper">
+            <div className={styles.dashVolumeSliderWrapper}>
               <input
                 type="range"
                 min="0"
@@ -816,27 +676,32 @@ function DashPlayer({
                 step="0.01"
                 value={volume}
                 onChange={handleVolumeChange}
-                className="dashVolumeSlider"
+                className={styles.dashVolumeSlider}
                 aria-label="Изменить громкость"
               />
             </div>
           </div>
-          <div className="dashSelectControl">
+          <div className={styles.dashSelectControl}>
             <button
               type="button"
-              className="dashBottomItem"
+              className={styles.dashBottomItem}
               aria-label="Качество"
               aria-haspopup="true"
             >
               <QualityIcon aria-hidden="true" />
             </button>
-            <div className="dashSelectList dashSelectListInverted">
+            <div
+              className={cx(
+                styles.dashSelectList,
+                styles.dashSelectListInverted,
+              )}
+            >
               <button
                 type="button"
                 onClick={() => handleVideoQualityChange("auto")}
                 className={[
-                  "dashSelectListItem",
-                  selectedVideoQuality === "auto" ? "is-active" : "",
+                  styles.dashSelectListItem,
+                  selectedVideoQuality === "auto" ? styles.isActive : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -851,9 +716,9 @@ function DashPlayer({
                     handleVideoQualityChange(getVideoQualityKey(quality))
                   }
                   className={[
-                    "dashSelectListItem",
+                    styles.dashSelectListItem,
                     selectedVideoQuality === getVideoQualityKey(quality)
-                      ? "is-active"
+                      ? styles.isActive
                       : "",
                   ]
                     .filter(Boolean)
@@ -866,7 +731,7 @@ function DashPlayer({
           </div>
           <button
             type="button"
-            className="dashBottomItem"
+            className={styles.dashBottomItem}
             aria-label="Полноэкранный режим"
             onClick={toggleFullscreen}
           >
