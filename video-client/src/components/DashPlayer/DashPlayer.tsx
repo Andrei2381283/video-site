@@ -14,7 +14,6 @@ import { ReactComponent as FullscreenIcon } from "../../assets/fullscreen.svg";
 import { ReactComponent as VolumeIcon } from "../../assets/volume.svg";
 import { ReactComponent as QualityIcon } from "../../assets/quality.svg";
 import { SavedTime } from "./SavedTime/SavedTime";
-import { formatPlaybackTime } from "../../helpers/player";
 import { DashPlayerData } from "../../types/player";
 import styles from "./DashPlayer.module.css";
 import {
@@ -95,7 +94,7 @@ function DashPlayer({
   }, [episodes, selectedEpisode]);
 
   const episodeDash = episode?.dash || episode?.dasha;
-  const sourceDash = data?.source?.dash;
+  const sourceDash = data?.source?.dash || data?.source?.dasha;
 
   const url = useMemo(() => {
     if (episodeDash) {

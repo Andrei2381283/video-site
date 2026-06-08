@@ -23,6 +23,7 @@ export interface PlaylistSeason {
 export interface DashPlayerData {
   source?: {
     dash?: string;
+    dasha?: string;
     audio?: AudioMeta;
     //Дописать остальные source-поля после стабилизации ответа API.
     [key: string]: unknown;
