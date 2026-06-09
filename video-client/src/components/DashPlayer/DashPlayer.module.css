@@ -78,6 +78,7 @@
   top: 0;
   height: 48px;
   max-width: 100%;
+  z-index: 6;
 }
 
 .dashBottomControls {
@@ -218,7 +219,6 @@
 
 .dashSelectList {
   position: absolute;
-  z-index: 4;
   left: 0;
   top: 100%;
   display: flex;
@@ -237,10 +237,19 @@
   visibility: hidden;
   pointer-events: none;
   transform: translateY(8px);
+  z-index: 150;
   transition:
     opacity 0.2s ease,
     transform 0.2s ease,
     visibility 0.2s ease;
+}
+
+.dashSelectListTv {
+  max-width: none;
+  flex-wrap: wrap;
+  overflow: visible;
+  width: max-content;
+  max-height: 300px;
 }
 
 .dashSelectListInverted {
@@ -265,6 +274,10 @@
   padding: 10px 12px;
   text-align: left;
   font-size: 14px;
+}
+
+.dashSelectListTv .dashSelectListItem {
+  width: 120px;
 }
 
 .dashSelectListItem:hover,

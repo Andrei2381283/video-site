@@ -30,7 +30,7 @@ import {
   getVideoQualityLabel,
   transformCdnUrl,
 } from "./helpers";
-import { isMobile } from "helpers/isMobile";
+import { isAndroidTV, isMobile } from "helpers/layout";
 import { CurrentTime } from "./CurrentTime/CurrentTime";
 import { TimeLine } from "./TimeLine/TimeLine";
 
@@ -444,7 +444,12 @@ function DashPlayer({
                   {selectedSeasonLabel}
                 </span>
               </button>
-              <div className={styles.dashSelectList}>
+              <div
+                className={cx(
+                  styles.dashSelectList,
+                  isAndroidTV() ? styles.dashSelectListTv : null,
+                )}
+              >
                 {seasons.map((season, index) => (
                   <button
                     type="button"
@@ -479,7 +484,12 @@ function DashPlayer({
                   {selectedEpisodeLabel}
                 </span>
               </button>
-              <div className={styles.dashSelectList}>
+              <div
+                className={cx(
+                  styles.dashSelectList,
+                  isAndroidTV() ? styles.dashSelectListTv : null,
+                )}
+              >
                 {episodes.map((episodeItem, index) => (
                   <button
                     type="button"
