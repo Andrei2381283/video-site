@@ -1,10 +1,31 @@
 import { SERVER_URL } from "../../constants";
 import { AudioMeta, PlaylistEpisode, PlaylistSeason } from "../../types/player";
+import type { Level, MediaPlaylist } from "hls.js";
 
 //Дописать точные типы dashjs-треков после проверки runtime-структуры библиотеки.
 export type DashTrack = any;
 //Дописать точные типы dashjs-representation после проверки runtime-структуры библиотеки.
 export type DashRepresentation = any;
+
+export type HlsAudioTrackAdapter = {
+  id: number;
+  index: number;
+  lang?: string;
+  codec?: string;
+  labels: Array<{ text: string }>;
+  hlsAudioTrackIndex: number;
+  sourceType: "hls";
+};
+
+export type HlsVideoQualityAdapter = {
+  id: string;
+  width?: number;
+  height?: number;
+  bandwidth?: number;
+  bitrate?: number;
+  hlsLevelIndex: number;
+  sourceType: "hls";
+};
 
 export type OrderedAudioTrack = {
   track: DashTrack;
@@ -53,6 +74,34 @@ export function getProxyUrl(url?: string | null) {
 
 export function getAudioTrackKey(track?: DashTrack | null) {
   return [track?.id, track?.index, track?.lang, track?.codec].join(":");
+}
+
+export function getHlsAudioTrackAdapters(
+  tracks: MediaPlaylist[],
+): HlsAudioTrackAdapter[] {
+  return tracks.map((track, index) => ({
+    id: track.id ?? index,
+    index,
+    lang: track.lang,
+    codec: track.audioCodec,
+    labels: [{ text: track.name || `Audio ${index + 1}` }],
+    hlsAudioTrackIndex: index,
+    sourceType: "hls",
+  }));
+}
+
+export function getHlsVideoQualityAdapters(
+  levels: Level[],
+): HlsVideoQualityAdapter[] {
+  return levels.map((level, index) => ({
+    id: `hls:${index}`,
+    width: level.width,
+    height: level.height,
+    bandwidth: level.bitrate,
+    bitrate: level.bitrate,
+    hlsLevelIndex: index,
+    sourceType: "hls",
+  }));
 }
 
 function getAudioTrackLabel(track: DashTrack, index: number) {

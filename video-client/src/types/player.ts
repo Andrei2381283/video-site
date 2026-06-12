@@ -24,9 +24,9 @@ export interface PlaylistEpisode {
   episode: string;
   id: number;
   videoKey: number;
-  dash: string;
+  dash?: string;
   dasha?: string;
-  hls: string;
+  hls?: string;
   audio: AudioMeta;
   cc?: ClosedCaption[];
   duration: number;
@@ -60,6 +60,7 @@ export interface DashPlayerData {
   source?: {
     dash?: string;
     dasha?: string;
+    hls?: string;
     audio?: AudioMeta;
     //Дописать остальные source-поля после стабилизации ответа API.
     [key: string]: unknown;

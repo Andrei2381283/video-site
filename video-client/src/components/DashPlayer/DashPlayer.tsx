@@ -7,7 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { MediaPlayer } from "dashjs";
+import { MediaPlayer, MediaPlayerClass } from "dashjs";
+import Hls from "hls.js";
 import { ReactComponent as PlayIcon } from "../../assets/play.svg";
 import { ReactComponent as PauseIcon } from "../../assets/pause.svg";
 import { ReactComponent as FullscreenIcon } from "../../assets/fullscreen.svg";
@@ -24,6 +25,8 @@ import {
   getAudioTrackKey,
   getBufferedTime,
   getEpisodeLabel,
+  getHlsAudioTrackAdapters,
+  getHlsVideoQualityAdapters,
   getInitialAudioTrack,
   getOrderedAudioTracks,
   getProxyUrl,
@@ -35,6 +38,7 @@ import {
 import { isAndroidTV, isMobile } from "helpers/layout";
 import { CurrentTime } from "./CurrentTime/CurrentTime";
 import { TimeLine } from "./TimeLine/TimeLine";
+import { SERVER_URL } from "../../constants";
 
 //Дописать точные типы событий dashjs после проверки runtime-структуры библиотеки.
 type DashEvent = any;
@@ -52,7 +56,8 @@ const cx = (...classes: Array<string | false | null | undefined>) =>
 
 function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<MediaPlayerClass | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isInitialAudioTrackAppliedRef = useRef(false);
   const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -73,6 +78,7 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
   const [selectedVideoQuality, setSelectedVideoQuality] = useState("auto");
   const [selectedSeason, setSelectedSeason] = useState(0);
   const [selectedEpisode, setSelectedEpisode] = useState(0);
+  const [isHlsEnabled, setIsHlsEnabled] = useState(false);
 
   const seasons = useMemo(() => {
     return [...(data?.playlist?.seasons || [])].sort(
@@ -89,9 +95,16 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
   }, [episodes, selectedEpisode]);
 
   const episodeDash = episode?.dash || episode?.dasha;
+  const episodeHls = episode?.hls;
   const sourceDash = data?.source?.dash || data?.source?.dasha;
+  const sourceHls = episodeHls || data?.source?.hls;
+  const isHlsActive = isHlsEnabled && !!sourceHls;
 
   const url = useMemo(() => {
+    if (isHlsActive && sourceHls) {
+      return transformCdnUrl(sourceHls);
+    }
+
     if (episodeDash) {
       return transformCdnUrl(episodeDash);
     }
@@ -99,7 +112,7 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
     if (!sourceDash) return null;
 
     return transformCdnUrl(sourceDash);
-  }, [episodeDash, sourceDash]);
+  }, [episodeDash, isHlsActive, sourceDash, sourceHls]);
 
   const audios = useMemo(() => {
     return episode?.audio || data?.source?.audio;
@@ -182,6 +195,123 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
     if (!url || !videoRef.current) return undefined;
 
     const videoElement = videoRef.current;
+    const handlePlay = () => {
+      setIsInitPhase(false);
+      setIsPlaying(true);
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+    };
+
+    videoElement.addEventListener("play", handlePlay);
+    videoElement.addEventListener("pause", handlePause);
+    videoElement.addEventListener("ended", handlePause);
+
+    if (isHlsActive) {
+      const proxiedUrl = getProxyUrl(url) || url;
+      const applyInitTime = () => {
+        if (initTime) {
+          videoElement.currentTime = initTime;
+        }
+      };
+      const syncAutoplay = () => {
+        if (isPlaying) {
+          videoElement.play().catch(() => setIsPlaying(false));
+        }
+      };
+
+      setAudioTracks([]);
+      setSelectedAudioTrack("");
+      setVideoQualities([]);
+      setSelectedVideoQuality("auto");
+      videoElement.addEventListener("loadedmetadata", applyInitTime);
+
+      let lastm3u8Url: string | null = null;
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          xhrSetup: (xhr, requestUrl) => {
+            if (requestUrl.includes(".m3u8")) {
+              lastm3u8Url = requestUrl
+                ?.split("?")?.[0]
+                .substring(0, requestUrl.lastIndexOf("/"));
+            }
+            let initialUrl = requestUrl;
+            if (
+              initialUrl.includes(SERVER_URL) &&
+              !initialUrl.includes("proxy-stream") &&
+              lastm3u8Url
+            ) {
+              initialUrl = initialUrl.replace(SERVER_URL, lastm3u8Url);
+            }
+            const requestProxyUrl = getProxyUrl(initialUrl);
+
+            if (requestProxyUrl) {
+              xhr.open("GET", requestProxyUrl, true);
+            }
+          },
+        });
+
+        const syncHlsAudioTracks = () => {
+          const tracks = getHlsAudioTrackAdapters(hls.audioTracks);
+          const initialTrack = !isInitialAudioTrackAppliedRef.current
+            ? getInitialAudioTrack(tracks, audios)
+            : null;
+
+          setAudioTracks(tracks);
+
+          if (initialTrack) {
+            const initialTrackKey = getAudioTrackKey(initialTrack);
+
+            isInitialAudioTrackAppliedRef.current = true;
+            setSelectedAudioTrack(initialTrackKey);
+            hls.audioTrack = initialTrack.hlsAudioTrackIndex;
+
+            return;
+          }
+
+          const currentTrack = tracks[hls.audioTrack];
+          setSelectedAudioTrack(
+            currentTrack ? getAudioTrackKey(currentTrack) : "",
+          );
+        };
+
+        const syncHlsVideoQualities = () => {
+          setVideoQualities(getHlsVideoQualityAdapters(hls.levels));
+        };
+
+        const handleManifestParsed = () => {
+          syncHlsAudioTracks();
+          syncHlsVideoQualities();
+          syncAutoplay();
+        };
+
+        hlsRef.current = hls;
+        hls.loadSource(proxiedUrl);
+        hls.attachMedia(videoElement);
+        hls.on(Hls.Events.MANIFEST_PARSED, handleManifestParsed);
+        hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, syncHlsAudioTracks);
+      } else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
+        videoElement.src = proxiedUrl;
+        videoElement.addEventListener("loadedmetadata", syncAutoplay);
+      }
+
+      setInitTime(0);
+
+      return () => {
+        videoElement.removeEventListener("play", handlePlay);
+        videoElement.removeEventListener("pause", handlePause);
+        videoElement.removeEventListener("ended", handlePause);
+        videoElement.removeEventListener("loadedmetadata", applyInitTime);
+        videoElement.removeEventListener("loadedmetadata", syncAutoplay);
+        hlsRef.current?.destroy();
+        hlsRef.current = null;
+        videoElement.removeAttribute("src");
+        videoElement.load();
+      };
+    }
+
     const player = MediaPlayer().create();
     playerRef.current = player;
     isInitialAudioTrackAppliedRef.current = false;
@@ -241,15 +371,6 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
       }
     };
 
-    const handlePlay = () => {
-      setIsInitPhase(false);
-      setIsPlaying(true);
-    };
-
-    const handlePause = () => {
-      setIsPlaying(false);
-    };
-
     player.addRequestInterceptor((request: DashRequest) => {
       if (request?.url) {
         request.url = getProxyUrl(request.url);
@@ -257,9 +378,6 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
 
       return Promise.resolve(request);
     });
-    videoElement.addEventListener("play", handlePlay);
-    videoElement.addEventListener("pause", handlePause);
-    videoElement.addEventListener("ended", handlePause);
     player.on(MediaPlayer.events.STREAM_INITIALIZED, handleStreamInitialized);
     player.on(MediaPlayer.events.TRACK_CHANGE_RENDERED, handleTrackChange);
     player.initialize(videoElement, url, isPlaying, initTime || undefined);
@@ -284,7 +402,7 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
     };
     // initTime сбрасывается внутри эффекта, поэтому не должен повторно инициализировать тот же stream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
+  }, [isHlsActive, url]);
 
   const handleAudioTrackChange = (trackKey: string) => {
     const track = audioTracks.find(
@@ -293,6 +411,11 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
 
     setSelectedAudioTrack(trackKey);
 
+    if (track && hlsRef.current && isHlsActive) {
+      hlsRef.current.audioTrack = track.hlsAudioTrackIndex;
+      return;
+    }
+
     if (track && playerRef.current) {
       playerRef.current.setCurrentTrack(track);
     }
@@ -300,6 +423,22 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
 
   const handleVideoQualityChange = (qualityKey: string) => {
     setSelectedVideoQuality(qualityKey);
+
+    if (hlsRef.current && isHlsActive) {
+      if (qualityKey === "auto") {
+        hlsRef.current.currentLevel = -1;
+        return;
+      }
+
+      const quality = videoQualities.find(
+        (item) => getVideoQualityKey(item) === qualityKey,
+      );
+
+      if (typeof quality?.hlsLevelIndex !== "number") return;
+
+      hlsRef.current.currentLevel = quality.hlsLevelIndex;
+      return;
+    }
 
     if (!playerRef.current) return;
 
@@ -320,7 +459,7 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
       (item) => getVideoQualityKey(item) === qualityKey,
     );
 
-    if (!quality?.id) return;
+    if (quality?.id === undefined || quality?.id === null) return;
 
     playerRef.current.updateSettings({
       streaming: {
@@ -339,7 +478,17 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
       setIsInitPhase(false);
     }
 
-    if (!playerRef.current) return;
+    if (!playerRef.current) {
+      if (!videoRef.current) return;
+
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => setIsPlaying(false));
+      } else {
+        videoRef.current.pause();
+      }
+
+      return;
+    }
 
     if (playerRef.current.isPaused()) {
       playerRef.current.play();
@@ -352,13 +501,27 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
     setVolume(Number(event.target.value));
   };
 
+  const toggleStreamType = () => {
+    if (!sourceHls) return;
+
+    if (videoRef.current) {
+      setInitTime(videoRef.current.currentTime);
+    }
+
+    setIsHlsEnabled((current) => !current);
+  };
+
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
       return;
     }
     containerRef.current?.requestFullscreen().then(() => {
-      if (isMobile()) window.screen.orientation.lock("landscape");
+      const screenOrientation = window.screen.orientation as ScreenOrientation & {
+        lock?: (orientation: "landscape") => Promise<void>;
+      };
+
+      if (isMobile()) screenOrientation.lock?.("landscape");
     });
   };
 
@@ -641,6 +804,18 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
           ) : null}
           <CurrentTime videoRef={videoRef} url={url} />
           <div style={{ width: "100%" }} />
+          {sourceHls ? (
+            <button
+              type="button"
+              className={cx(styles.dashBottomItem, styles.streamTypeButton)}
+              aria-label={
+                isHlsActive ? "Переключить на DASH" : "Переключить на HLS"
+              }
+              onClick={toggleStreamType}
+            >
+              {isHlsActive ? "HLS" : "DASH"}
+            </button>
+          ) : null}
           <div className={styles.dashVolumeControl}>
             <button
               type="button"
