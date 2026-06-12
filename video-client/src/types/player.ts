@@ -1,23 +1,59 @@
 export interface AudioMeta {
-  names?: string[];
-  order?: number[];
-  //Дописать остальные поля аудиоконфигурации после стабилизации ответа API.
+  names: string[];
+  order: number[];
+}
+
+export interface ClosedCaption {
+  url: string;
+  name: string;
+}
+
+export interface EpisodeSection {
+  title: string;
+  start: number;
+  end: number;
+  skip: boolean;
+  type: string;
+}
+
+export interface EpisodePreview {
+  src: string;
 }
 
 export interface PlaylistEpisode {
-  episode?: number;
-  dash?: string;
+  episode: string;
+  id: number;
+  videoKey: number;
+  dash: string;
   dasha?: string;
-  audio?: AudioMeta;
-  //Дописать остальные поля эпизода после стабилизации ответа API.
-  [key: string]: unknown;
+  hls: string;
+  audio: AudioMeta;
+  cc?: ClosedCaption[];
+  duration: number;
+  title: string;
+  download: string;
+  sections: EpisodeSection[];
+  poster: string;
+  preview: EpisodePreview;
 }
 
 export interface PlaylistSeason {
-  season?: number;
-  episodes?: PlaylistEpisode[];
-  //Дописать остальные поля сезона после стабилизации ответа API.
-  [key: string]: unknown;
+  season: number;
+  blocked: boolean;
+  episodes: PlaylistEpisode[];
+}
+
+export interface PlaylistCurrent {
+  season: number;
+  episode: string;
+}
+
+export interface Playlist {
+  open: boolean;
+  autoNext: boolean;
+  id: number;
+  current: PlaylistCurrent;
+  seasons: PlaylistSeason[];
 }
 
 export interface DashPlayerData {
@@ -28,11 +64,7 @@ export interface DashPlayerData {
     //Дописать остальные source-поля после стабилизации ответа API.
     [key: string]: unknown;
   };
-  playlist?: {
-    seasons?: PlaylistSeason[];
-    //Дописать остальные playlist-поля после стабилизации ответа API.
-    [key: string]: unknown;
-  };
+  playlist?: Playlist;
   //Дописать остальные поля data после стабилизации ответа API.
   [key: string]: unknown;
 }

@@ -13,6 +13,8 @@ import { ReactComponent as PauseIcon } from "../../assets/pause.svg";
 import { ReactComponent as FullscreenIcon } from "../../assets/fullscreen.svg";
 import { ReactComponent as VolumeIcon } from "../../assets/volume.svg";
 import { ReactComponent as QualityIcon } from "../../assets/quality.svg";
+import { ReactComponent as PrevEpisodeIcon } from "../../assets/prev-episode.svg";
+import { ReactComponent as NextEpisodeIcon } from "../../assets/next-episode.svg";
 import { SavedTime } from "./SavedTime/SavedTime";
 import { DashPlayerData } from "../../types/player";
 import styles from "./DashPlayer.module.css";
@@ -41,7 +43,6 @@ type DashRequest = any;
 
 type DashPlayerProps = {
   data: DashPlayerData;
-  autoPlay?: boolean;
   className?: string;
   film?: string | number;
 } & VideoHTMLAttributes<HTMLVideoElement>;
@@ -49,13 +50,7 @@ type DashPlayerProps = {
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
 
-function DashPlayer({
-  data,
-  autoPlay = false,
-  className,
-  film,
-  ...videoProps
-}: DashPlayerProps) {
+function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -267,7 +262,7 @@ function DashPlayer({
     videoElement.addEventListener("ended", handlePause);
     player.on(MediaPlayer.events.STREAM_INITIALIZED, handleStreamInitialized);
     player.on(MediaPlayer.events.TRACK_CHANGE_RENDERED, handleTrackChange);
-    player.initialize(videoElement, url, autoPlay, initTime || undefined);
+    player.initialize(videoElement, url, isPlaying, initTime || undefined);
     setInitTime(0);
 
     return () => {
@@ -289,7 +284,7 @@ function DashPlayer({
     };
     // initTime сбрасывается внутри эффекта, поэтому не должен повторно инициализировать тот же stream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, autoPlay]);
+  }, [url]);
 
   const handleAudioTrackChange = (trackKey: string) => {
     const track = audioTracks.find(
@@ -379,6 +374,26 @@ function DashPlayer({
     if (event.code === "KeyF") {
       event.preventDefault();
       toggleFullscreen();
+    }
+  };
+
+  const handlePrevEpisode = () => {
+    if (selectedEpisode > 0) {
+      setSelectedEpisode(selectedEpisode - 1);
+    } else if (selectedSeason > 0) {
+      setSelectedEpisode(
+        (seasons?.[selectedSeason - 1]?.episodes?.length || 1) - 1,
+      );
+      setSelectedSeason(Math.max(selectedSeason - 1, 0));
+    }
+  };
+
+  const handleNextEpisode = () => {
+    if (selectedEpisode < episodes.length - 1) {
+      setSelectedEpisode(selectedEpisode + 1);
+    } else if (selectedSeason < seasons.length - 1) {
+      setSelectedEpisode(0);
+      setSelectedSeason(Math.min(selectedSeason + 1, seasons.length - 1));
     }
   };
 
@@ -523,7 +538,12 @@ function DashPlayer({
                   {selectedAudioTrackLabel}
                 </span>
               </button>
-              <div className={styles.dashSelectList}>
+              <div
+                className={cx(
+                  styles.dashSelectList,
+                  isAndroidTV() ? styles.dashSelectListTv : null,
+                )}
+              >
                 {orderedAudioTracks.map(({ trackKey, label }) => {
                   return (
                     <button
@@ -599,6 +619,26 @@ function DashPlayer({
               <PlayIcon aria-hidden="true" />
             )}
           </button>
+          {seasons.length ? (
+            <>
+              <button
+                type="button"
+                className={cx(styles.dashBottomItem, styles.episodeChange)}
+                aria-label="Предыдущая серия"
+                onClick={handlePrevEpisode}
+              >
+                <PrevEpisodeIcon aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={cx(styles.dashBottomItem, styles.episodeChange)}
+                aria-label="Следующая серия"
+                onClick={handleNextEpisode}
+              >
+                <NextEpisodeIcon aria-hidden="true" />
+              </button>
+            </>
+          ) : null}
           <CurrentTime videoRef={videoRef} url={url} />
           <div style={{ width: "100%" }} />
           <div className={styles.dashVolumeControl}>
