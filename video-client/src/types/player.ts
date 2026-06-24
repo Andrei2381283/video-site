@@ -65,6 +65,7 @@ export interface DashPlayerData {
     //Дописать остальные source-поля после стабилизации ответа API.
     [key: string]: unknown;
   };
+  sections?: EpisodeSection[];
   playlist?: Playlist;
   //Дописать остальные поля data после стабилизации ответа API.
   [key: string]: unknown;

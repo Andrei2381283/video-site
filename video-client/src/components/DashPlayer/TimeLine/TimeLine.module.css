@@ -14,7 +14,8 @@
 }
 
 .dashTimelineBuffered,
-.dashTimelineProgress {
+.dashTimelineProgress,
+.dashTimelineSector {
   position: absolute;
   left: 0;
   top: 50%;
@@ -30,6 +31,11 @@
 
 .dashTimelineProgress {
   background: #ffffff;
+}
+
+.dashTimelineSector {
+  border-radius: 0;
+  background: red;
 }
 
 .dashTimelineTrack::before {

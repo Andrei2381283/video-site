@@ -1,5 +1,4 @@
 import {
-  ChangeEvent,
   KeyboardEvent as ReactKeyboardEvent,
   VideoHTMLAttributes,
   useEffect,
@@ -12,8 +11,6 @@ import Hls from "hls.js";
 import { ReactComponent as PlayIcon } from "../../assets/play.svg";
 import { ReactComponent as PauseIcon } from "../../assets/pause.svg";
 import { ReactComponent as FullscreenIcon } from "../../assets/fullscreen.svg";
-import { ReactComponent as VolumeIcon } from "../../assets/volume.svg";
-import { ReactComponent as QualityIcon } from "../../assets/quality.svg";
 import { ReactComponent as PrevEpisodeIcon } from "../../assets/prev-episode.svg";
 import { ReactComponent as NextEpisodeIcon } from "../../assets/next-episode.svg";
 import { SavedTime } from "./SavedTime/SavedTime";
@@ -23,7 +20,6 @@ import {
   DashRepresentation,
   DashTrack,
   getAudioTrackKey,
-  getBufferedTime,
   getEpisodeLabel,
   getHlsAudioTrackAdapters,
   getHlsVideoQualityAdapters,
@@ -31,14 +27,18 @@ import {
   getOrderedAudioTracks,
   getProxyUrl,
   getSeasonLabel,
-  getVideoQualityKey,
-  getVideoQualityLabel,
   transformCdnUrl,
 } from "./helpers";
 import { isAndroidTV, isMobile } from "helpers/layout";
 import { CurrentTime } from "./CurrentTime/CurrentTime";
 import { TimeLine } from "./TimeLine/TimeLine";
 import { SERVER_URL } from "../../constants";
+import { VolumeControl } from "./VolumeControl/VolumeControl";
+import { VideoQualitySelect } from "./VideoQualitySelect/VideoQualitySelect";
+import { Settings } from "./Settings/Settings";
+import { safeJsonParse } from "helpers/safeJsonParse";
+
+const defaultSkipSections = ["screen", "titer"];
 
 //Дописать точные типы событий dashjs после проверки runtime-структуры библиотеки.
 type DashEvent = any;
@@ -68,17 +68,19 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isShowActionIcon, setIsShowActionIcon] = useState(true);
-  const [volume, setVolume] = useState(1);
   const [initTime, setInitTime] = useState(0);
   const [audioTracks, setAudioTracks] = useState<DashTrack[]>([]);
   const [selectedAudioTrack, setSelectedAudioTrack] = useState("");
   const [videoQualities, setVideoQualities] = useState<DashRepresentation[]>(
     [],
   );
-  const [selectedVideoQuality, setSelectedVideoQuality] = useState("auto");
   const [selectedSeason, setSelectedSeason] = useState(0);
   const [selectedEpisode, setSelectedEpisode] = useState(0);
   const [isHlsEnabled, setIsHlsEnabled] = useState(false);
+  const [disabledSections, setDisabledSections] = useState<string[]>(
+    safeJsonParse<string[]>(localStorage.getItem("disabledSections")) ||
+      defaultSkipSections,
+  );
 
   const seasons = useMemo(() => {
     return [...(data?.playlist?.seasons || [])].sort(
@@ -173,13 +175,6 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
   }, [isInitPhase, isPlaying]);
 
   useEffect(() => {
-    if (!videoRef.current) return;
-
-    videoRef.current.volume = volume;
-    videoRef.current.muted = volume === 0;
-  }, [volume]);
-
-  useEffect(() => {
     if (selectedSeason >= seasons.length) {
       setSelectedSeason(0);
     }
@@ -190,6 +185,15 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
       setSelectedEpisode(0);
     }
   }, [selectedEpisode, episodes.length]);
+
+  useEffect(() => {
+    if (disabledSections !== defaultSkipSections) {
+      localStorage.setItem(
+        "disabledSections",
+        JSON.stringify(disabledSections),
+      );
+    }
+  }, [disabledSections]);
 
   useEffect(() => {
     if (!url || !videoRef.current) return undefined;
@@ -224,7 +228,6 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
       setAudioTracks([]);
       setSelectedAudioTrack("");
       setVideoQualities([]);
-      setSelectedVideoQuality("auto");
       videoElement.addEventListener("loadedmetadata", applyInitTime);
 
       let lastm3u8Url: string | null = null;
@@ -397,7 +400,6 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
       setAudioTracks([]);
       setSelectedAudioTrack("");
       setVideoQualities([]);
-      setSelectedVideoQuality("auto");
       player.reset();
     };
     // initTime сбрасывается внутри эффекта, поэтому не должен повторно инициализировать тот же stream.
@@ -419,58 +421,6 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
     if (track && playerRef.current) {
       playerRef.current.setCurrentTrack(track);
     }
-  };
-
-  const handleVideoQualityChange = (qualityKey: string) => {
-    setSelectedVideoQuality(qualityKey);
-
-    if (hlsRef.current && isHlsActive) {
-      if (qualityKey === "auto") {
-        hlsRef.current.currentLevel = -1;
-        return;
-      }
-
-      const quality = videoQualities.find(
-        (item) => getVideoQualityKey(item) === qualityKey,
-      );
-
-      if (typeof quality?.hlsLevelIndex !== "number") return;
-
-      hlsRef.current.currentLevel = quality.hlsLevelIndex;
-      return;
-    }
-
-    if (!playerRef.current) return;
-
-    if (qualityKey === "auto") {
-      playerRef.current.updateSettings({
-        streaming: {
-          abr: {
-            autoSwitchBitrate: {
-              video: true,
-            },
-          },
-        },
-      });
-      return;
-    }
-
-    const quality = videoQualities.find(
-      (item) => getVideoQualityKey(item) === qualityKey,
-    );
-
-    if (quality?.id === undefined || quality?.id === null) return;
-
-    playerRef.current.updateSettings({
-      streaming: {
-        abr: {
-          autoSwitchBitrate: {
-            video: false,
-          },
-        },
-      },
-    });
-    playerRef.current.setRepresentationForTypeById("video", quality.id, true);
   };
 
   const togglePlay = () => {
@@ -497,10 +447,6 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
     }
   };
 
-  const handleVolumeChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setVolume(Number(event.target.value));
-  };
-
   const toggleStreamType = () => {
     if (!sourceHls) return;
 
@@ -517,7 +463,8 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
       return;
     }
     containerRef.current?.requestFullscreen().then(() => {
-      const screenOrientation = window.screen.orientation as ScreenOrientation & {
+      const screenOrientation = window.screen
+        .orientation as ScreenOrientation & {
         lock?: (orientation: "landscape") => Promise<void>;
       };
 
@@ -769,7 +716,13 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
           url={url}
         />
         <div className={cx(styles.dashBottomControls, hiddenControlsClass)}>
-          <TimeLine videoRef={videoRef} url={url} />
+          <TimeLine
+            isPlaying={isPlaying}
+            videoRef={videoRef}
+            url={url}
+            sections={data.sections || episode.sections || []}
+            disabledSections={disabledSections}
+          />
           <button
             type="button"
             className={styles.dashBottomItem}
@@ -811,80 +764,22 @@ function DashPlayer({ data, className, film, ...videoProps }: DashPlayerProps) {
               aria-label={
                 isHlsActive ? "Переключить на DASH" : "Переключить на HLS"
               }
+              title={isHlsActive ? "Переключить на DASH" : "Переключить на HLS"}
               onClick={toggleStreamType}
             >
               {isHlsActive ? "HLS" : "DASH"}
             </button>
           ) : null}
-          <div className={styles.dashVolumeControl}>
-            <button
-              type="button"
-              className={styles.dashBottomItem}
-              aria-label="Громкость"
-            >
-              <VolumeIcon aria-hidden="true" />
-            </button>
-            <div className={styles.dashVolumeSliderWrapper}>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={handleVolumeChange}
-                className={styles.dashVolumeSlider}
-                aria-label="Изменить громкость"
-              />
-            </div>
-          </div>
-          <div className={styles.dashSelectControl}>
-            <button
-              type="button"
-              className={styles.dashBottomItem}
-              aria-label="Качество"
-              aria-haspopup="true"
-            >
-              <QualityIcon aria-hidden="true" />
-            </button>
-            <div
-              className={cx(
-                styles.dashSelectList,
-                styles.dashSelectListInverted,
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => handleVideoQualityChange("auto")}
-                className={[
-                  styles.dashSelectListItem,
-                  selectedVideoQuality === "auto" ? styles.isActive : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                Авто
-              </button>
-              {videoQualities.map((quality) => (
-                <button
-                  type="button"
-                  key={getVideoQualityKey(quality)}
-                  onClick={() =>
-                    handleVideoQualityChange(getVideoQualityKey(quality))
-                  }
-                  className={[
-                    styles.dashSelectListItem,
-                    selectedVideoQuality === getVideoQualityKey(quality)
-                      ? styles.isActive
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  {getVideoQualityLabel(quality)}
-                </button>
-              ))}
-            </div>
-          </div>
+          <VolumeControl videoRef={videoRef} />
+          <Settings
+            videoQualities={videoQualities}
+            playerRef={playerRef}
+            hlsRef={hlsRef}
+            isHlsActive={isHlsActive}
+            sections={data.sections || episode.sections || []}
+            disabledSections={disabledSections}
+            setDisabledSections={setDisabledSections}
+          />
           <button
             type="button"
             className={styles.dashBottomItem}

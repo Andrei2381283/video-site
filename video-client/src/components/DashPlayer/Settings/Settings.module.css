@@ -1,0 +1,36 @@
+.container {
+  position: relative;
+}
+
+.settingsList {
+  position: absolute;
+  bottom: 105%;
+  right: -50%;
+  z-index: 25;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #1a212b;
+  background: rgba(0, 0, 0, 0.92);
+  border-radius: 8px;
+  min-width: 120px;
+  overflow: hidden;
+}
+
+.settingsListItem {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.settingsListItem:not(:last-child) {
+  border-bottom: 1px solid #1a212b;
+}
+
+.settingsListItem.active {
+  background: rgba(42, 53, 68, 0.6);
+}
+
+.settingsListItem:hover,
+.settingsListItem:focus-visible {
+  background: #2a3544;
+}

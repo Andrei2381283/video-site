@@ -1,14 +1,31 @@
-import React, { ChangeEvent, FC, RefObject, useEffect, useState } from "react";
+import React, {
+  ChangeEvent,
+  FC,
+  RefObject,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import styles from "./TimeLine.module.css";
 import { MediaPlayerClass } from "dashjs";
 import { getBufferedTime } from "../helpers";
+import { EpisodeSection } from "types/player";
 
 interface TimeLineProps {
+  isPlaying: boolean;
   videoRef: RefObject<HTMLVideoElement | null>;
   url: string;
+  sections?: EpisodeSection[];
+  disabledSections?: string[];
 }
 
-export const TimeLine: FC<TimeLineProps> = ({ videoRef, url }) => {
+export const TimeLine: FC<TimeLineProps> = ({
+  isPlaying,
+  videoRef,
+  url,
+  sections = [],
+  disabledSections = [],
+}) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [bufferedTime, setBufferedTime] = useState(0);
@@ -50,6 +67,22 @@ export const TimeLine: FC<TimeLineProps> = ({ videoRef, url }) => {
     };
   }, [url]);
 
+  const activeSections = useMemo(
+    () => sections.filter((section) => disabledSections.includes(section.type)),
+    [sections, disabledSections],
+  );
+
+  useEffect(() => {
+    if (!isPlaying || currentTime >= Math.floor(duration)) return;
+
+    for (const section of activeSections) {
+      if (currentTime >= section.start && currentTime < section.end) {
+        handleTimelineChange(section.end);
+        break;
+      }
+    }
+  }, [currentTime, isPlaying, duration]);
+
   const handleTimelineChange = (
     event: ChangeEvent<HTMLInputElement> | number,
   ) => {
@@ -83,12 +116,21 @@ export const TimeLine: FC<TimeLineProps> = ({ videoRef, url }) => {
           type="range"
           min="0"
           max={safeDuration || 0}
-          step="0.1"
+          step="5"
           value={Math.min(currentTime, safeDuration || 0)}
           onChange={handleTimelineChange}
           className={styles.dashTimelineSlider}
           aria-label="Перемотка видео"
         />
+        {activeSections.map((section) => (
+          <div
+            className={styles.dashTimelineSector}
+            style={{
+              left: (section.start / safeDuration) * 100 + "%",
+              width: ((section.end - section.start) / safeDuration) * 100 + "%",
+            }}
+          />
+        ))}
       </div>
     </div>
   );

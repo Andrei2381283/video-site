@@ -1,6 +1,9 @@
+import { MediaPlayerClass } from "dashjs";
 import { SERVER_URL } from "../../constants";
 import { AudioMeta, PlaylistEpisode, PlaylistSeason } from "../../types/player";
 import type { Level, MediaPlaylist } from "hls.js";
+import { RefObject, useEffect, useState } from "react";
+import Hls from "hls.js";
 
 //Дописать точные типы dashjs-треков после проверки runtime-структуры библиотеки.
 export type DashTrack = any;
@@ -168,13 +171,19 @@ export function getOrderedAudioTracks(
   return orderedTracks;
 }
 
-export function getSeasonLabel(season: PlaylistSeason | undefined, index: number) {
+export function getSeasonLabel(
+  season: PlaylistSeason | undefined,
+  index: number,
+) {
   const seasonNumber = season?.season || index + 1;
 
   return `Сезон ${seasonNumber}`;
 }
 
-export function getEpisodeLabel(episode: PlaylistEpisode | undefined, index: number) {
+export function getEpisodeLabel(
+  episode: PlaylistEpisode | undefined,
+  index: number,
+) {
   const episodeNumber = episode?.episode || index + 1;
 
   return `Эпизод ${episodeNumber}`;
@@ -208,8 +217,12 @@ export function getVideoQualityKey(representation: DashRepresentation) {
   ].join(":");
 }
 
-export function getVideoQualityLabel(representation?: DashRepresentation | null) {
+export function getVideoQualityLabel(
+  representation?: DashRepresentation | string | null,
+) {
   if (!representation) return "";
+
+  if (typeof representation === "string") return representation.split(":")[1];
 
   return representation.height;
 }
@@ -230,3 +243,82 @@ export function getBufferedTime(videoElement: HTMLVideoElement) {
 
   return videoElement.buffered.end(videoElement.buffered.length - 1);
 }
+
+export type VideoQualitySelectProps = {
+  videoQualities: DashRepresentation[];
+  playerRef: RefObject<MediaPlayerClass | null>;
+  hlsRef: RefObject<Hls | null>;
+  isHlsActive: boolean;
+};
+export const useVideoQualitiesControl = (
+  videoQualities: DashRepresentation[],
+  playerRef: RefObject<MediaPlayerClass | null>,
+  hlsRef: RefObject<Hls | null>,
+  isHlsActive: boolean,
+): [string, (qualityKey: string) => void] => {
+  const [selectedVideoQuality, setSelectedVideoQuality] = useState("auto");
+
+  useEffect(() => {
+    if (!videoQualities?.length || selectedVideoQuality === "auto") return;
+
+    const quality = videoQualities.find(
+      (item) => getVideoQualityKey(item) === selectedVideoQuality,
+    );
+
+    handleVideoQualityChange(quality ? getVideoQualityKey(quality) : "auto");
+  }, [videoQualities]);
+
+  const handleVideoQualityChange = (qualityKey: string) => {
+    setSelectedVideoQuality(qualityKey);
+
+    if (hlsRef.current && isHlsActive) {
+      if (qualityKey === "auto") {
+        hlsRef.current.currentLevel = -1;
+        return;
+      }
+
+      const quality = videoQualities.find(
+        (item) => getVideoQualityKey(item) === qualityKey,
+      );
+
+      if (typeof quality?.hlsLevelIndex !== "number") return;
+
+      hlsRef.current.currentLevel = quality.hlsLevelIndex;
+      return;
+    }
+
+    if (!playerRef.current) return;
+
+    if (qualityKey === "auto") {
+      playerRef.current.updateSettings({
+        streaming: {
+          abr: {
+            autoSwitchBitrate: {
+              video: true,
+            },
+          },
+        },
+      });
+      return;
+    }
+
+    const quality = videoQualities.find(
+      (item) => getVideoQualityKey(item) === qualityKey,
+    );
+
+    if (quality?.id === undefined || quality?.id === null) return;
+
+    playerRef.current.updateSettings({
+      streaming: {
+        abr: {
+          autoSwitchBitrate: {
+            video: false,
+          },
+        },
+      },
+    });
+    playerRef.current.setRepresentationForTypeById("video", quality.id, true);
+  };
+
+  return [selectedVideoQuality, handleVideoQualityChange];
+};
