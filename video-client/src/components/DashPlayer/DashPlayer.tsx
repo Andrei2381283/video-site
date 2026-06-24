@@ -34,7 +34,6 @@ import { CurrentTime } from "./CurrentTime/CurrentTime";
 import { TimeLine } from "./TimeLine/TimeLine";
 import { SERVER_URL } from "../../constants";
 import { VolumeControl } from "./VolumeControl/VolumeControl";
-import { VideoQualitySelect } from "./VideoQualitySelect/VideoQualitySelect";
 import { Settings } from "./Settings/Settings";
 import { safeJsonParse } from "helpers/safeJsonParse";
 
